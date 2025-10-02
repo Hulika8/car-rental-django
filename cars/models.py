@@ -2,16 +2,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 
 class Car(models.Model):
-    """
-    Car model - Vehicle rental system for global companies
-    
-    Global Best Practices:
-    - English field names and verbose names
-    - International standards
-    - Professional terminology
-    - Scalable for multinational operations
-    """
-    
+        
     # Vehicle information
     brand = models.CharField(max_length=100, verbose_name="Brand")
     model = models.CharField(max_length=100, verbose_name="Model")
@@ -22,7 +13,7 @@ class Car(models.Model):
     daily_price = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        verbose_name="Daily Rate"
+        verbose_name="Daily Rate (USD)"
     )
     
     # Vehicle status
@@ -59,24 +50,12 @@ class Car(models.Model):
     
     # BUSINESS LOGIC METHODS
     def can_be_rented(self):
-        """
-        Check if vehicle is available for rental
-        
-        Returns:
-            bool: True if vehicle can be rented
-        """
         return (self.is_active and 
                 not self.is_rented and 
                 not self.is_damaged and 
                 not self.is_maintenance)
     
     def get_status(self):
-        """
-        Get vehicle status
-        
-        Returns:
-            str: Vehicle status
-        """
         if self.is_maintenance:
             return "In Maintenance"
         elif self.is_damaged:
@@ -87,12 +66,6 @@ class Car(models.Model):
             return "Available"
     
     def get_rental_status(self):
-        """
-        Get detailed rental status for API responses
-        
-        Returns:
-            str: Detailed rental status
-        """
         if not self.can_be_rented():
             if self.is_maintenance:
                 return "In Maintenance - Not Available"
@@ -104,6 +77,9 @@ class Car(models.Model):
                 return "Not Available"
         else:
             return "Available for Rental"
+        
+    def get_daily_price_display(self):
+        return f"${self.daily_price:.2f}"
     
     # MODEL VALIDATION (Security)
     def clean(self):
