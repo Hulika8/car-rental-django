@@ -16,8 +16,8 @@ class Reservation(models.Model):
     end_date = models.DateField(verbose_name="End Date")
     
     # Pricing
-    daily_rate = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Daily Rate (USD)")
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Total Amount (USD)")
+    daily_rate = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Daily Rate (USD)")
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Total Amount (USD)")
     
     # Status
     STATUS_CHOICES = [
@@ -63,6 +63,31 @@ class Reservation(models.Model):
     def is_cancelled(self):
         return self.status == 'cancelled'
     
+    # BUSINESS LOGIC: Date conflict check
+    
+    def check_date_conflict(self):
+        """
+        Check if there's any date conflict with existing reservations
+        Same car cannot be rented for overlapping dates
+        """
+        # Find all reservations for the same car
+        overlapping = Reservation.objects.filter(
+            car=self.car,
+            status__in=['pending', 'confirmed', 'active']
+        ).exclude(pk=self.pk)  # Exclude current reservation (for updates)
+        
+        # Check each reservation for date overlap
+        for reservation in overlapping:
+            # Date overlap logic:
+            # - New start date is before existing end date AND
+            # - New end date is after existing start date
+            if (self.start_date <= reservation.end_date and 
+                self.end_date >= reservation.start_date):
+                raise ValidationError(
+                    f"This car is already reserved from {reservation.start_date} to {reservation.end_date}"
+                )
+    
+    
     # Model validation
     def clean(self):
         # Basic field validations
@@ -72,7 +97,7 @@ class Reservation(models.Model):
             raise ValidationError("Start date cannot be in the past")
         if self.end_date < date.today():
             raise ValidationError("End date cannot be in the past")
-        if self.daily_rate <= 0:
+        if self.daily_rate is not None and self.daily_rate <= 0:
             raise ValidationError("Daily rate must be greater than 0")
         
         # Business logic validations
@@ -80,6 +105,9 @@ class Reservation(models.Model):
             raise ValidationError("User is not active")
         if not self.car.can_be_rented():
             raise ValidationError("Car is not available for rental")
+        
+        # Check for date conflicts (same car, overlapping dates)
+        self.check_date_conflict()
     
     def save(self, *args, **kwargs):
         self.clean()
