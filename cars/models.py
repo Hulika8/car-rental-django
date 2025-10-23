@@ -86,9 +86,6 @@ class Car(models.Model):
         """
         Model validation - Ensure data integrity
         """
-        if self.is_rented and self.is_active:
-            raise ValidationError("Rented vehicle cannot be active!")
-        
         if self.is_maintenance and self.is_active:
             raise ValidationError("Vehicle in maintenance cannot be active!")
         

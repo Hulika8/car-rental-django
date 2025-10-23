@@ -43,7 +43,7 @@ class Reservation(models.Model):
     
     # Business logic methods
     def get_duration_days(self):
-     return (self.end_date - self.start_date).days
+        return (self.end_date - self.start_date).days
     
     def get_total_amount(self):
         return self.daily_rate * self.get_duration_days()
@@ -93,18 +93,38 @@ class Reservation(models.Model):
         # Basic field validations
         if self.start_date >= self.end_date:
             raise ValidationError("Start date must be before end date")
-        if self.start_date < date.today():
-            raise ValidationError("Start date cannot be in the past")
-        if self.end_date < date.today():
-            raise ValidationError("End date cannot be in the past")
         if self.daily_rate is not None and self.daily_rate <= 0:
             raise ValidationError("Daily rate must be greater than 0")
+        
+        # Date validations (only for new reservations)
+        if not self.pk:  # new reservation
+            if self.start_date < date.today():
+                raise ValidationError("Start date cannot be in the past")
+            if self.end_date < date.today():
+                raise ValidationError("End date cannot be in the past")
         
         # Business logic validations
         if not self.user.is_active:
             raise ValidationError("User is not active")
-        if not self.car.can_be_rented():
-            raise ValidationError("Car is not available for rental")
+        
+        # USER PROFILE CHECK 
+        try:
+            profile = self.user.userprofile
+        except:
+            raise ValidationError(
+                f"User '{self.user.username}' does not have a profile!")
+        
+        if not profile.can_make_reservations():
+            raise ValidationError(
+                f"User '{self.user.username}' cannot make reservations. "
+                f"Verified: {profile.is_verified}, Active: {profile.is_active}"
+            )
+        
+        # CAR AVAILABILITY CHECK (Only for new reservations)
+        if not self.pk:
+            if not self.car.can_be_rented():
+                status = self.car.get_rental_status()
+                raise ValidationError(f"Car is not available for rental. Status: {status}")
         
         # Check for date conflicts (same car, overlapping dates)
         self.check_date_conflict()

@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django import forms
 from django.utils.safestring import mark_safe
+from django.contrib import messages
+from datetime import date
 from .models import Reservation
+
 
 class ReservationAdminForm(forms.ModelForm):
     """
@@ -15,12 +18,12 @@ class ReservationAdminForm(forms.ModelForm):
         widgets = {
             'daily_rate': forms.NumberInput(attrs={'style': 'background-color: #fff3cd; color: #000; font-weight: bold; font-size: 14px;'}),
             'total_amount': forms.NumberInput(attrs={'style': 'background-color: #d4edda; color: #000; font-weight: bold; font-size: 14px;'}),
-        #'daily_rate': forms.NumberInput(attrs={'style': 'background-color: #e8e8e8; color: #000; -moz-appearance: textfield;', '-webkit-appearance': 'none'}),
-        #'total_amount': forms.NumberInput(attrs={'style': 'background-color: #e8e8e8; color: #000; -moz-appearance: textfield;', '-webkit-appearance': 'none'}),
         }
+        
     class Media:
         js = ('admin/js/reservation_auto_calculate.js',)
-        
+
+
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
     form = ReservationAdminForm
@@ -36,7 +39,6 @@ class ReservationAdmin(admin.ModelAdmin):
     list_editable = ('status',)
     list_display_links = ('user', 'car')
     list_select_related = ('user', 'car')
-    # raw_id_fields = ('user', 'car')  # Silindi: JavaScript dropdown bekliyor, bu text input yapıyordu
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         (None, {
@@ -60,8 +62,9 @@ class ReservationAdmin(admin.ModelAdmin):
         """
         Override save_model to automatically fill daily_rate and total_amount
         Also set status to 'confirmed' if admin is creating the reservation
+        Validates status transitions
         """
-         # Auto-fill daily_rate from selected car
+        # Auto-fill daily_rate from selected car
         if obj.car:
             obj.daily_rate = obj.car.daily_price
         
@@ -70,8 +73,21 @@ class ReservationAdmin(admin.ModelAdmin):
             duration = (obj.end_date - obj.start_date).days
             obj.total_amount = obj.daily_rate * duration
         
-        # If admin is creating reservation, set status to 'confirmed'
-        if not change:  # 'change' is False when creating new object
-            obj.status = 'confirmed'
+        # STATUS MANAGEMENT
+        if change:  # Updating existing reservation
+            old_obj = Reservation.objects.get(pk=obj.pk)
             
+            # Check if changing to 'active' from any other status
+            if old_obj.status != 'active' and obj.status == 'active':
+                # Validate: Can only activate if start date has arrived
+                if obj.start_date > date.today():
+                    messages.error(
+                        request,
+                        f"Cannot activate reservation! Start date is {obj.start_date}, today is {date.today()}"
+                    )
+                    obj.status = old_obj.status  # Revert to old status
+        else:  # Creating new reservation
+            # If admin is creating reservation, set status to 'confirmed'
+            obj.status = 'confirmed'
+        
         super().save_model(request, obj, form, change)
