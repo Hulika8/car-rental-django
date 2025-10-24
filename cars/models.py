@@ -17,7 +17,7 @@ class Car(models.Model):
     )
     
     # Vehicle status
-    is_active = models.BooleanField(default=True, verbose_name="Active")
+    in_fleet = models.BooleanField(default=True, verbose_name="In Fleet")
     is_rented = models.BooleanField(default=False, verbose_name="Rented")
     is_damaged = models.BooleanField(default=False, verbose_name="Damaged")
     is_maintenance = models.BooleanField(default=False, verbose_name="In Maintenance")
@@ -50,7 +50,7 @@ class Car(models.Model):
     
     # BUSINESS LOGIC METHODS
     def can_be_rented(self):
-        return (self.is_active and 
+        return (self.in_fleet and 
                 not self.is_rented and 
                 not self.is_damaged and 
                 not self.is_maintenance)
@@ -85,13 +85,7 @@ class Car(models.Model):
     def clean(self):
         """
         Model validation - Ensure data integrity
-        """
-        if self.is_maintenance and self.is_active:
-            raise ValidationError("Vehicle in maintenance cannot be active!")
-        
-        if self.is_damaged and self.is_active:
-            raise ValidationError("Damaged vehicle cannot be active!")
-        
+        """ 
         if self.year < 1900 or self.year > 2030:
             raise ValidationError("Invalid year! Must be between 1900-2030")
         
