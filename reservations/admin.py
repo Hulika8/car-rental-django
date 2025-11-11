@@ -61,8 +61,7 @@ class ReservationAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         """
         Override save_model to automatically fill daily_rate and total_amount
-        Also set status to 'confirmed' if admin is creating the reservation
-        Validates status transitions
+        Validates status transitions and business rules
         """
         # Auto-fill daily_rate from selected car
         if obj.car:
@@ -94,17 +93,7 @@ class ReservationAdmin(admin.ModelAdmin):
                         f"⚠️ End date is {obj.end_date} (past). Auto-setting status to 'completed'."
                     )
                     obj.status = 'completed'
-                    
-                # Validate: No other active reservation for same car
-                elif Reservation.objects.filter(
-                    car=obj.car,
-                    status='active',
-                ).exclude(pk=obj.pk).exists():
-                    messages.error(
-                        request,
-                        f"❌ Car {obj.car} already has an active reservation!"
-                    )
-                    obj.status = old_obj.status
+            
             # Check if changing to 'cancelled'
             if obj.status == 'cancelled':
                 if old_obj.status not in ['pending', 'confirmed']:
@@ -113,10 +102,9 @@ class ReservationAdmin(admin.ModelAdmin):
                         f"❌ Cannot cancel! Only pending/confirmed reservations can be cancelled. Current: {old_obj.status}"
                     )
                     obj.status = old_obj.status
-                        
-                    
-        else:  # Creating new reservation
-            # If admin is creating reservation, set status to 'confirmed'
-            obj.status = 'confirmed'
+        
+        # No status override for new reservations
+        # Default status from model (pending) will be used
+        # Admin can manually change status if needed
         
         super().save_model(request, obj, form, change)
