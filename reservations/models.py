@@ -5,6 +5,59 @@ from cars.models import Car
 from datetime import date
 
 class Reservation(models.Model):
+    """
+    Reservation model for car rentals
+    
+    TODO (Week 3 - Celery Automation):
+    ═══════════════════════════════════════════════════════════════
+    [ ] Add payment_deadline field (DateTimeField)
+        - Auto-set to created_at + 30 minutes for pending reservations
+        - Example: payment_deadline = models.DateTimeField(null=True, blank=True)
+    
+    [ ] Implement Celery periodic task: cleanup_expired_pending_reservations()
+        - Runs every 5 minutes
+        - Find: status='pending' AND created_at < (now - 30min)
+        - Action: Auto-cancel + set cancellation_reason='Payment timeout'
+        - Signal will auto-update: car.is_rented = False
+    
+    [ ] Add email notification: "Payment timeout - Reservation cancelled"
+    
+    [ ] Business Logic:
+        - Pending → Confirmed (ödeme yapıldı) → Active → Completed ✅
+        - Pending → Auto-cancelled (30min timeout) ❌
+    
+    Real-world example: Hertz/Enterprise 15-30min payment window
+    ═══════════════════════════════════════════════════════════════
+    
+    TODO (Week 3-4 - Payment Integration & Advanced Workflow):
+    ═══════════════════════════════════════════════════════════════
+    [ ] Advanced Status Workflow:
+        - Add: 'partially_paid' (deposit received)
+        - Add: 'ready_for_pickup' (start date arrived)
+        - Add: 'overdue' (late return)
+        - Add: 'refunded' (refund completed)
+    
+    [ ] Payment Tracking Fields:
+        - payment_status: ['unpaid', 'partial', 'paid', 'refunded']
+        - deposit_amount: Kapora miktarı
+        - remaining_amount: Kalan ödeme
+        - payment_method: ['credit_card', 'cash', 'bank_transfer']
+        - stripe_payment_id: Stripe transaction ID
+        - paid_at: Ödeme tarihi
+    
+    [ ] Workflow Scenarios:
+        ADMIN (Call Center):
+        1. Create → status='pending' (bilgiler alındı)
+        2. Ödeme al → status='confirmed' (manuel değiştir)
+        
+        CUSTOMER (API - Week 3):
+        1. Create → status='pending' (ödeme bekliyor)
+        2. Pay → status='confirmed' (Stripe webhook)
+        3. Deposit → status='partially_paid' (kapora)
+    
+    Real-world: Hertz 20% deposit, Enterprise full payment option
+    ═══════════════════════════════════════════════════════════════
+    """
     # User relationship
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reservations', verbose_name="User")
     
@@ -120,11 +173,16 @@ class Reservation(models.Model):
                 f"Verified: {profile.is_verified}, Active: {profile.is_active}"
             )
         
-        # CAR AVAILABILITY CHECK (Only for new reservations)
+        # CAR OPERATIONAL CHECK (Only for new reservations)
+        # Note: is_rented is managed by date conflicts, not here!
         if not self.pk:
-            if not self.car.can_be_rented():
-                status = self.car.get_rental_status()
-                raise ValidationError(f"Car is not available for rental. Status: {status}")
+            # Check if car is in operational state
+            if not self.car.in_fleet:
+                raise ValidationError("Car is not in fleet!")
+            if self.car.is_damaged:
+                raise ValidationError("Car is damaged and cannot be rented!")
+            if self.car.is_maintenance:
+                raise ValidationError("Car is under maintenance and cannot be rented!")
         
         # Check for date conflicts (same car, overlapping dates)
         self.check_date_conflict()
