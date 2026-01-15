@@ -14,8 +14,17 @@ def update_car_status_on_save(sender, instance, created, **kwargs):
     Update car rental status when reservation is saved
     
     Business Rules:
-    - status = 'active' → car.is_rented = True
-    - status = 'completed' or 'cancelled' → car.is_rented = False
+    - status in ['pending', 'confirmed', 'active'] → car.is_rented = True
+    - status in ['completed', 'cancelled'] → car.is_rented = False
+    
+    TODO (Week 3 - Celery):
+    ───────────────────────────────────────────────────────────
+    Current: Manual status transitions
+    Future: Auto-cancel pending after 30min timeout (Celery task)
+    
+    This signal will automatically handle:
+    - Auto-cancelled pending → car.is_rented = False ✅
+    ───────────────────────────────────────────────────────────
     
     Args:
         sender: Reservation model class
@@ -26,17 +35,17 @@ def update_car_status_on_save(sender, instance, created, **kwargs):
     if not instance.car:
         return
     
-    if instance.status == 'active':
+    if instance.status in ['pending', 'confirmed', 'active']:
         if not instance.car.is_rented:
             instance.car.is_rented = True
             instance.car.save(update_fields=['is_rented'])
-            print(f"🚗 Car {instance.car} is now RENTED")
-    
+            print(f"🚗 Car {instance.car} is now RENTED (status: {instance.status})")
+
     elif instance.status in ['completed', 'cancelled']:
         if instance.car.is_rented:
             instance.car.is_rented = False
             instance.car.save(update_fields=['is_rented'])
-            print(f"🚗 Car {instance.car} is now AVAILABLE")
+            print(f"🚗 Car {instance.car} is now AVAILABLE (status: {instance.status})")
 
 
 @receiver(pre_delete, sender=Reservation)
