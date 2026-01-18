@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 from rest_framework import routers
 from cars.views import CarViewSet
 from reservations.views import ReservationViewSet
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 router = routers.DefaultRouter()
 router.register(r'cars', CarViewSet, basename='car')
@@ -30,6 +31,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api-auth/', include('rest_framework.urls')),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/users/', include('users.urls')),
 ]
 
 # Static files için
