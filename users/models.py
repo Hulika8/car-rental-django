@@ -6,12 +6,12 @@ class UserProfile(models.Model):
     user = models.OneToOneField(DjangoUser, on_delete=models.CASCADE, verbose_name="User")
     
     # Profile information
-    phone = models.CharField(max_length=20, verbose_name="Phone Number")
+    phone = models.CharField(max_length=20, unique=True, verbose_name="Phone Number")
     address = models.TextField(verbose_name="Address")
     city = models.CharField(max_length=100, verbose_name="City")
     state = models.CharField(max_length=100, verbose_name="State")
     zip_code = models.CharField(max_length=20, verbose_name="Zip Code")
-    license_number = models.CharField(max_length=50, verbose_name="License Number")
+    license_number = models.CharField(max_length=50, unique=True, verbose_name="License Number")
     date_of_birth = models.DateField(verbose_name="Date of Birth")
     
     # Status
