@@ -3,7 +3,7 @@ Car API Views
 Provides REST API endpoints for Car model
 """
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from .permissions import IsAdminOrReadOnly
 from .models import Car
 from .serializers import CarSerializer
 
@@ -24,5 +24,5 @@ class CarViewSet(viewsets.ModelViewSet):
     """
     queryset = Car.objects.all()
     serializer_class = CarSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     
