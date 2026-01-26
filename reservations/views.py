@@ -3,9 +3,9 @@ Reservation API Views
 Provides REST API endpoints for Reservation model
 """
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
 from .models import Reservation
 from .serializers import ReservationSerializer
+from .permissions import IsAdminOrOwner
 
 
 class ReservationViewSet(viewsets.ModelViewSet):
@@ -23,7 +23,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
         - All operations: Only authenticated users
     """
     serializer_class = ReservationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrOwner]
     
     def get_queryset(self):
         """
