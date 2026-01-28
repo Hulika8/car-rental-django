@@ -20,7 +20,7 @@ class CarViewSet(viewsets.ModelViewSet):
     
     Permissions:
         - Read: Anyone (authenticated or not)
-        - Write: Only authenticated users
+        - Write: Only admin users
     """
     queryset = Car.objects.all()
     serializer_class = CarSerializer

@@ -7,8 +7,13 @@ from .models import UserProfile
 from rest_framework.permissions import IsAuthenticated
 from .serializers import UserMeSerializer
 from rest_framework.permissions import IsAdminUser
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 class RegisterAPIView(APIView):
+    throttle_classes = [ScopedRateThrottle]  # rate limit for this endpoint
+    throttle_scope = 'register' # uses "register" limit from settings
+    
     def post(self, request):
         data = request.data
 
@@ -96,3 +101,8 @@ class AdminOnlyAPIView(APIView):
             {"message": "Admin access granted"},
             status=status.HTTP_200_OK
         )
+        
+class CustomTokenObtainPairView(TokenObtainPairView):
+    throttle_classes = [ScopedRateThrottle]  # rate limit for login
+    throttle_scope = 'login'  # uses "login" limit from settings
+    
