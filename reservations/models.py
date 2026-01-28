@@ -1,8 +1,12 @@
-from django.db import models
-from django.core.exceptions import ValidationError
+from datetime import date, datetime, time
+from decimal import Decimal
+
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
+
 from cars.models import Car
-from datetime import date
 
 class Reservation(models.Model):
     """
@@ -81,6 +85,12 @@ class Reservation(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Status")
+    
+    # Cancellation info
+    cancellation_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cancellation_date = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True)
+    cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
@@ -192,3 +202,35 @@ class Reservation(models.Model):
         if not self.total_amount:
             self.total_amount = self.get_total_amount()
         super().save(*args, **kwargs)
+        
+    def get_cancellation_fee(self):
+        """
+        Calculate cancellation fee based on time before start.
+        48+ hours -> 0%
+        24-48 hours -> 50%
+        <24 hours -> 100%
+        """
+        if self.status not in ['pending', 'confirmed']:
+            return None  # iptal edilemez
+
+        now = timezone.now()
+        start_dt = datetime.combine(self.start_date, time.min)
+
+        # timezone aware yap
+        if timezone.is_naive(start_dt):
+            start_dt = timezone.make_aware(start_dt, timezone.get_current_timezone())
+
+        hours_to_start = (start_dt - now).total_seconds() / 3600
+
+        # toplam tutarı bul
+        total = self.total_amount or self.get_total_amount()
+        if total is None:
+            return None
+
+        if hours_to_start >= 48:
+            return Decimal('0.00')
+        elif hours_to_start >= 24:
+            return total * Decimal('0.50')
+        else:
+            return total
+            
