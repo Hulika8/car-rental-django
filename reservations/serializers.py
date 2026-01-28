@@ -33,7 +33,14 @@ class ReservationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reservation
         fields = '__all__'
-        read_only_fields = ('total_amount', 'created_at', 'updated_at')
+        read_only_fields = (
+            'total_amount',
+            'created_at',
+            'updated_at',
+            'cancellation_fee',
+            'cancellation_date',
+            'cancelled_by',
+)
         
         
     def __init__(self, *args, **kwargs):
