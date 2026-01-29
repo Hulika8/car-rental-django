@@ -10,7 +10,7 @@ class Car(models.Model):
     color = models.CharField(max_length=50, verbose_name="Color")
     
     # Pricing information
-    daily_price = models.DecimalField(
+    daily_rate = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         verbose_name="Daily Rate (USD)"
@@ -78,8 +78,8 @@ class Car(models.Model):
         else:
             return "Available for Rental"
         
-    def get_daily_price_display(self):
-        return f"${self.daily_price:.2f}"
+    def get_daily_rate_display(self):
+        return f"${self.daily_rate:.2f}"
     
     # MODEL VALIDATION (Security)
     def clean(self):
@@ -89,7 +89,7 @@ class Car(models.Model):
         if self.year < 1900 or self.year > 2030:
             raise ValidationError("Invalid year! Must be between 1900-2030")
         
-        if self.daily_price <= 0:
+        if self.daily_rate <= 0:
             raise ValidationError("Daily rate must be greater than 0!")
     
     def save(self, *args, **kwargs):

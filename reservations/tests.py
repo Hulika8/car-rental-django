@@ -37,7 +37,7 @@ class ReservationModelTests(TestCase):
             model="Corolla",
             year=2020,
             color="White",
-            daily_price=Decimal("100.00"),
+            daily_rate=Decimal("100.00"),
             in_fleet=True,
             is_rented=False,
             is_damaged=False,
