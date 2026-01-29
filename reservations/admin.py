@@ -65,7 +65,7 @@ class ReservationAdmin(admin.ModelAdmin):
         """
         # Auto-fill daily_rate from selected car
         if obj.car:
-            obj.daily_rate = obj.car.daily_price
+            obj.daily_rate = obj.car.daily_rate
         
         # Auto-calculate total_amount
         if obj.start_date and obj.end_date and obj.daily_rate:
