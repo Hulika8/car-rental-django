@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
+from celery.schedules import crontab
 from pathlib import Path
 from datetime import timedelta
 
@@ -160,4 +160,27 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Car Rental API',
     'DESCRIPTION': 'API documentation for Car Rental system',
     'VERSION': '1.0.0',
+}
+
+# Celery Configuration
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+
+CELERY_BEAT_SCHEDULE = {
+    "activate_todays_reservations": {
+        "task": "reservations.tasks.activate_todays_reservations",
+        "schedule": crontab(hour=0, minute=0),  # 00:00
+    },
+    "complete_ended_reservations": {
+        "task": "reservations.tasks.complete_ended_reservations",
+        "schedule": crontab(hour=23, minute=59),  # 23:59
+    },
+    "cleanup_expired_reservations": {
+        "task": "reservations.tasks.cleanup_expired_reservations",
+        "schedule": crontab(hour=1, minute=0),  # 01:00
+    },
 }
