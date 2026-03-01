@@ -70,17 +70,38 @@ class ReservationModelTests(TestCase):
         self.assertFalse(active.can_be_cancelled())
 
     def test_cancellation_fee_more_than_48_hours(self):
-        reservation = self._create_reservation(start_days=3, duration_days=2, status="pending")
+        reservation = self._create_reservation(
+            start_days=3, duration_days=2, status="pending"
+        )
         self.assertEqual(reservation.get_cancellation_fee(), Decimal("0.00"))
 
     def test_cancellation_fee_between_24_and_48_hours(self):
-        reservation = self._create_reservation(start_days=2, duration_days=2, status="pending")
+        reservation = self._create_reservation(
+            start_days=2, duration_days=2, status="pending"
+        )
         self.assertEqual(reservation.get_cancellation_fee(), Decimal("100.00"))
 
     def test_cancellation_fee_less_than_24_hours(self):
-        reservation = self._create_reservation(start_days=1, duration_days=2, status="pending")
+        reservation = self._create_reservation(
+            start_days=1, duration_days=2, status="pending"
+        )
         self.assertEqual(reservation.get_cancellation_fee(), Decimal("200.00"))
 
     def test_cancellation_fee_invalid_status(self):
         reservation = self._create_reservation(status="active")
         self.assertIsNone(reservation.get_cancellation_fee())
+
+    def test_get_refund_amount(self):
+        reservation = self._create_reservation(duration_days=3, status="confirmed")
+        reservation.total_amount = Decimal("300.00")
+        reservation.cancellation_fee = Decimal("100.00")
+        reservation.save(update_fields=["total_amount", "cancellation_fee"])
+
+        self.assertEqual(reservation.get_refund_amount(), Decimal("200.00"))
+
+    def test_get_refund_amount_without_fee(self):
+        reservation = self._create_reservation(duration_days=3, status="confirmed")
+        reservation.total_amount = Decimal("300.00")
+        reservation.save(update_fields=["total_amount"])
+
+        self.assertIsNone(reservation.get_refund_amount())

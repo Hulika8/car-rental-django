@@ -92,6 +92,32 @@ class Reservation(models.Model):
     cancellation_reason = models.TextField(blank=True)
     cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     
+    # Payment info
+    PAYMENT_STATUS_CHOICES = [
+        ('unpaid', 'Unpaid'),
+        ('partial', 'Partial'),
+        ('paid', 'Paid'),
+        ('refunded', 'Refunded'),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ('credit_card', 'Credit Card'),
+        ('cash', 'Cash'),
+        ('bank_transfer', 'Bank Transfer'),
+    ]
+
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid')
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, null=True, blank=True)
+    stripe_payment_id = models.CharField(max_length=255, null=True, blank=True)
+    deposit_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    remaining_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    # Refund info
+    refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    refund_reason = models.TextField(blank=True)
+    refunded_at = models.DateTimeField(null=True, blank=True)
+    
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
@@ -234,3 +260,11 @@ class Reservation(models.Model):
         else:
             return total
             
+    def get_refund_amount(self):
+        if self.cancellation_fee is None:
+            return None
+        total = self.total_amount or self.get_total_amount()
+        if total is None:
+            return None
+        refund = total - self.cancellation_fee
+        return max(refund, Decimal('0.00'))      
