@@ -10,6 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
+from decimal import Decimal
 
 
 class ReservationViewSet(viewsets.ModelViewSet):
@@ -149,6 +150,92 @@ class ReservationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
         
+    @action(detail=True, methods=['post'])
+    def pay(self, request, pk=None):
+        reservation = self.get_object()
+
+        if reservation.status not in ['pending', 'confirmed']:
+            return Response(
+                {"detail": "Only pending or confirmed reservations can be paid."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            amount = Decimal(str(request.data.get("amount", "0")))
+        except Exception:
+            return Response({"detail": "Invalid amount."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if amount <= 0:
+            return Response({"detail": "Amount must be greater than 0."}, status=status.HTTP_400_BAD_REQUEST)
+
+        total = reservation.total_amount or reservation.get_total_amount()
+        if total is None:
+            return Response({"detail": "Total amount not available."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if amount != total:
+            return Response(
+                {"detail": "Full payment is required. Amount must equal total amount."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reservation.payment_method = request.data.get("payment_method", "credit_card")
+        reservation.stripe_payment_id = request.data.get("stripe_payment_id", "")
+        reservation.paid_at = timezone.now()
+
+        # NOTE: remaining_amount stays for future partial-payment (e.g., deposit) support.
+        reservation.payment_status = 'paid'
+        reservation.deposit_amount = total
+        reservation.remaining_amount = Decimal('0.00')
+
+        reservation.save()
+        serializer = self.get_serializer(reservation)
+        return Response(
+            {"message": "Payment recorded.", "reservation": serializer.data},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['post'])
+    def refund(self, request, pk=None):
+        reservation = self.get_object()
+
+        if not request.user.is_staff:
+            return Response(
+                {"detail": "Only staff can process refunds."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if reservation.status != 'cancelled':
+            return Response(
+                {"detail": "Only cancelled reservations can be refunded."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if reservation.payment_status not in ['paid', 'partial']:
+            return Response(
+                {"detail": "Reservation is not paid or partially paid."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        refund_amount = reservation.get_refund_amount()
+        if refund_amount is None:
+            return Response(
+                {"detail": "Refund amount cannot be calculated."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reservation.refund_amount = refund_amount
+        reservation.refund_reason = request.data.get("reason", "")
+        reservation.refunded_at = timezone.now()
+        reservation.payment_status = 'refunded'
+        reservation.save()
+
+        serializer = self.get_serializer(reservation)
+        return Response(
+            {"message": "Refund processed.", "refund_amount": refund_amount, "reservation": serializer.data},
+            status=status.HTTP_200_OK,
+        )
+            
+        
     @action(detail=True, methods=['get'])
     def cancellation_policy(self, request, pk=None):
         """
@@ -189,3 +276,4 @@ class ReservationViewSet(viewsets.ModelViewSet):
             {"reservation_id": reservation.id, "cancellation_fee": fee},
             status=status.HTTP_200_OK,
         )
+        
